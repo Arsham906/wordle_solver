@@ -62,38 +62,30 @@ char GetCharAt(int x)
 	return result;
 }
 
-void SearchInVec(const char c, const std::string& str, std::vector<int>& indexOfResult)
+template<typename iter>
+std::vector<int> SearchInSingleType(const char c, iter begin, iter end)
 {
-	for (int i = 0; i < str.size(); ++i)
+	std::vector<int> results;
+	for (int counter = 0; begin != end; ++begin, ++counter)
 	{
-		if (str[i] == c)
-			indexOfResult.emplace_back(i);
+		if (*begin == c)
+			results.push_back(counter);
 	}
+	return results;
+}
+template<typename iter>
+std::vector<int> SearchInPairType(const char c, iter begin, iter end)
+{
+	std::vector<int> results;
+	for (int counter = 0; begin != end; ++begin, ++counter)
+	{
+		if (std::get<char>(*begin) == c)
+			results.push_back(counter);
+	}
+	return results;
 }
 
-void BlackListFilter(const std::vector<std::string>& dic,
-	const std::string& blackList,
-	std::vector<std::string>& result)
-{
-	for (int i = 0; i < dic.size(); ++i)
-	{
-		bool isDeleted = false;
-		for (const char& e : blackList)
-		{
-			if (dic[i].find(e) != std::string::npos)
-			{
-				isDeleted = true;
-				break;
-			}
-		}
-		if (isDeleted)
-			continue;
-		else
-			result.push_back(dic[i]);
-	}
-}
-
-void ColorFilter(const std::vector<std::string>& dic,
+void Filter(const std::vector<std::string>& dic,
 	const std::vector<std::pair<int, char>>& filter,
 	std::vector<std::string>& results)
 {
@@ -101,20 +93,58 @@ void ColorFilter(const std::vector<std::string>& dic,
 	{
 		bool isGreen = true;
 		bool isGold = true;
-		for (auto& e : filter)
+		bool isDeleted = false;
+		for (const auto& e : filter)
 		{
 			int pos = std::get<int>(e);
 			char c = std::get<char>(e);
-			std::vector<int> indexes;
-			SearchInVec(c, dic[i], indexes);
-			if (c == '\0')
-				continue;
-			else if (pos % 10 == 0)
+			std::vector<int> dicIndexes = SearchInSingleType(c, dic[i].begin(), dic[i].end());
+			std::vector<int> filterIndexes = SearchInPairType(c, filter.begin(), filter.end());
+
+			if (pos % 11 == 0)
 			{
-				pos /= 10;
-				pos -= 1;
+				pos = (pos / 11) - 1;
+
+				if (dicIndexes.size() == 0)
+					continue;
+				else
+				{
+					if (dicIndexes.size() >=
+						filterIndexes.size())
+					{
+						isDeleted = true;
+						break;
+					}
+					else
+					{
+						isDeleted = false;
+					}
+				}
+			}
+
+			if (pos % 10 == 0)
+			{
+				pos = (pos / 10) - 1;
 				bool hasChar = false;
-				for (int& idx : indexes)
+				/*auto idx = dic[i].find(c);
+				if (idx == std::string::npos)
+				{
+					isGreen = false;
+					break;
+				}
+				while (idx != std::string::npos)
+				{
+					if (idx != pos)
+						isGreen = false;
+					else
+					{
+						isGreen = true;
+						break;
+					}
+					auto const lastIdx = idx + 1;
+					idx = dic[i].find(c, lastIdx);
+				}*/
+				for (int& idx : dicIndexes)
 				{
 					hasChar = true;
 					if (idx != pos)
@@ -138,7 +168,24 @@ void ColorFilter(const std::vector<std::string>& dic,
 				pos -= 1;
 				bool isIdx = false;
 				bool hasChar = false;
-				for (int& idx : indexes)
+
+				/*auto idx = dic[i].find(c);
+				if (idx == std::string::npos)
+				{
+					isGold = false;
+					break;
+				}
+				while (idx != std::string::npos)
+				{
+					if (idx == pos)
+					{
+						isGold = false;
+						break;
+					}
+					auto const lastIdx = idx + 1;
+					idx = dic[i].find(c, lastIdx);
+				}*/
+				for (int& idx : dicIndexes)
 				{
 					hasChar = true;
 					if (idx == pos)
@@ -153,10 +200,10 @@ void ColorFilter(const std::vector<std::string>& dic,
 					break;
 				}
 			}
-			if (!isGold || !isGreen)
+			if (!isGold || !isGreen || isDeleted)
 				break;
 		}
-		if (isGreen && isGold)
+		if (isGreen && isGold && !isDeleted)
 			results.emplace_back(dic[i]);
 	}
 }
@@ -186,7 +233,7 @@ int main()
 		temp = dictionary[i];
 		std::string lettersInuse;
 		int letterCnt = 0;
-		int wordScore = 1;
+		int wordScore = 100000;
 		for (int j = 0; j < frqntLttrs.size(); ++j)
 		{
 			auto const idx = temp.find_last_of(temp[j]);
@@ -196,8 +243,8 @@ int main()
 			auto const letterIdx = frqntLttrs.find(temp[j]);
 			if (letterIdx != std::string::npos)
 			{
-				int chans = letterIdx + 1;
-				wordScore /= chans * std::pow(10, 5);
+				int chans = int(letterIdx) + 1;
+				wordScore /= chans;
 				++letterCnt;
 				lettersInuse += temp[j];
 				continue;
@@ -259,6 +306,7 @@ int main()
 			std::cin >> result;
 			if (result == 0)
 			{
+				resultVec[i] = { (i + 1) * 11, word[i] };
 				blackList += word[i];
 			}
 			if (result == 1)
@@ -276,9 +324,14 @@ int main()
 		std::vector<std::string> blackListFiltered;
 		std::vector<std::string> finalResults;
 
-		BlackListFilter(virtualdictionary, blackList, blackListFiltered);
+		// to debug uncomment it out //
+		/*std::ofstream out("test.txt");
+		for (const std::string& e : virtualdictionary)
+		{
+			out << e << '\n' << std::flush;
+		}*/
 
-		ColorFilter(blackListFiltered, resultVec, finalResults);
+		Filter(virtualdictionary, resultVec, finalResults);
 
 		virtualdictionary = finalResults;
 
@@ -287,6 +340,8 @@ int main()
 			std::cout << e << '\t';
 		}
 	}
+
+	/*				------IRRELEVANT------				*/
 
 	//for (int t = 0; t < dictionary.size(); ++t)
 	//{
