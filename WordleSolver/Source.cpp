@@ -121,8 +121,17 @@ void ColorFilter(const std::vector<std::string>& dic,
 					{
 						isGreen = false;
 					}
+					else
+					{
+						isGreen = true;
+						break;
+					}
 				}
-				!hasChar ? isGreen = false : isGreen *= 1;
+				if (!hasChar)
+				{
+					isGreen = false;
+					break;
+				}
 			}
 			else
 			{
@@ -139,8 +148,13 @@ void ColorFilter(const std::vector<std::string>& dic,
 					}
 				}
 				if (isIdx || !hasChar)
+				{
 					isGold = false;
+					break;
+				}
 			}
+			if (!isGold || !isGreen)
+				break;
 		}
 		if (isGreen && isGold)
 			results.emplace_back(dic[i]);
